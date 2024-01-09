@@ -29,11 +29,12 @@
       </div>
     </section>
     <section>
-      <nav>Phone</nav>
-      <div formGroupName="phone" class="flex-column">
+      <nav>Phones</nav>
+      <div formArrayName="phones">
+        <div *ngFor="let phone of contactForm.controls.phones.controls; let i=index" [formGroupName]="i" class="flex-column">
         <div class="flex-group">
           <input formControlName="phoneNumber" placeholder="Phone" />
-          <img src="/assets/plus-grey-blue.png" class="add" />
+          <img src="/assets/plus-grey-blue.png" class="add" class="add" (click)="addPhone()"/>
         </div>
         <!-- creando los radiobuttoms dinámicamente -->
         <div class="radio">
@@ -43,6 +44,7 @@
         <!--   <input type="radio" formControlName="phoneType" value="work"> Work
           <input type="radio" formControlName="phoneType" value="other"> Other -->
         </div>
+      </div>
       </div>
     </section>
     <section>

@@ -23,10 +23,7 @@ export class EditContactComponent implements OnInit {
   dateOfBirth: <Date | null>null,
   // dateOfBirth: '',
   favoritesRanking: <number | null> null,
-  phone: this.fb.nonNullable.group({
-    phoneNumber: '',
-    phoneType: ''
-  }),
+  phones: this.fb.array([this.createPhoneGroup()]),
   address: this.fb.nonNullable.group({
     streetAddress: ['', Validators.required],
     city: ['', Validators.required],
@@ -48,6 +45,10 @@ export class EditContactComponent implements OnInit {
     this.contactsService.getContact(contactId).
       subscribe((contact) => {
         if(!contact) return;
+
+        for(let i = 1; i < contact.phones.length; i++) {
+          this.addPhone();
+        }
         
         //con esta línea, nos ahorramos todos los setValue que están comentados más abajo
         //esta es la magia del formBuilder
@@ -65,6 +66,17 @@ export class EditContactComponent implements OnInit {
         this.contactForm.controls.address.controls.postalCode.setValue(contact.address.postalCode);
         this.contactForm.controls.address.controls.addressType.setValue(contact.address.addressType); */
       });
+  }
+
+  createPhoneGroup() {
+    return this.fb.nonNullable.group({
+      phoneNumber: '',
+      phoneType: ''
+    })
+  }
+
+  addPhone() {
+    this.contactForm.controls.phones.push(this.createPhoneGroup());
   }
 
   get firstName() {
