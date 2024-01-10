@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ContactsService } from '../contacts/contacts.service';
 import { addressTypeValues, phoneTypeValues } from '../contacts/contact.model';
 import { restrictedWords } from '../validators/restricted-words.validator';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
 
 @Component({
   templateUrl: './edit-contact.component.html',
@@ -40,7 +41,10 @@ export class EditContactComponent implements OnInit {
 
   ngOnInit() {
     const contactId = this.route.snapshot.params['id'];
-    if (!contactId) return
+    if (!contactId) {
+      this.subscribeToAddressChanges();
+      return;
+    }
 
     this.contactsService.getContact(contactId).
       subscribe((contact) => {
@@ -66,13 +70,67 @@ export class EditContactComponent implements OnInit {
         this.contactForm.controls.address.controls.postalCode.setValue(contact.address.postalCode);
         this.contactForm.controls.address.controls.addressType.setValue(contact.address.addressType); */
       });
+      this.subscribeToAddressChanges();
+  }
+
+  subscribeToAddressChanges() {
+    const addressGroup = this.contactForm.controls.address;
+    addressGroup.valueChanges
+      .pipe(distinctUntilChanged(this.stringifyCompare))
+      //esta suscripción va a remover todos los validadores requeridos
+      //de todos nuestros campos de dirección tan pronto como el usuario inicie a escribir
+      .subscribe(() => {
+        for (const controlName in addressGroup.controls) {
+          addressGroup.get(controlName)?.removeValidators([Validators.required]);
+          addressGroup.get(controlName)?.updateValueAndValidity();
+        }
+      });
+
+      addressGroup.valueChanges
+      //debouncetime va a retener cualquier evento emitido hasta que pasen dos segundos sin
+      //que se emitan eventos adicionales, una vez que todo esté en silencio durante dos segundos
+      //emitirá los eventos, esto hará que nuestros validadores se vuelvan agregar 2 segundos después
+      //de que el usuario deje de escribir
+      .pipe(debounceTime(2000), distinctUntilChanged(this.stringifyCompare))
+      //esta suscripción va a remover todos los validadores requeridos
+      //de todos nuestros campos de dirección tan pronto como el usuario inicie a escribir
+      .subscribe(() => {
+        for (const controlName in addressGroup.controls) {
+          addressGroup.get(controlName)?.addValidators([Validators.required]);
+          addressGroup.get(controlName)?.updateValueAndValidity();
+        }
+      });
+  }
+
+  stringifyCompare(a:any, b:any) {
+    return JSON.stringify(a) === JSON.stringify(b);
   }
 
   createPhoneGroup() {
-    return this.fb.nonNullable.group({
+    const phoneGroup = this.fb.nonNullable.group({
       phoneNumber: '',
-      phoneType: ''
-    })
+      phoneType: '',
+      preferred: false
+    });
+
+    //cuando sea que un phonegroup es creado, nos suscribiremos a los cambios del formcontrol preferred
+    //así que cuando su valor cambie, actualizamos los validators
+    phoneGroup.controls.preferred.valueChanges
+    //ESTO LO HACEMOS PARA EVITAR UN LOOP INFINITO Y HACER QUE EL EVENTO SE DISPARE 
+    //CUANDO VERDADERAMENT LOS VALORES HAYAN CAMBIADO
+    .pipe(distinctUntilChanged((a, b) => this.stringifyCompare(a,b)))
+    .subscribe(value => {
+      if(value)
+        phoneGroup.controls.phoneNumber.addValidators([Validators.required]);
+      else
+        phoneGroup.controls.phoneNumber.removeValidators([Validators.required]);
+
+        //esto causará que angular re evalue la valdiación de nuestro campo despupes de camnbiar sus validadores
+        phoneGroup.controls.phoneNumber.updateValueAndValidity();
+
+    });
+
+    return phoneGroup;
   }
 
   addPhone() {
